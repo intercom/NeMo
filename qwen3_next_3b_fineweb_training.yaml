@@ -1,0 +1,190 @@
+# Qwen3-Next 3B parameter model training configuration for FineWeb
+# This configuration uses preprocessed binary files for optimal performance
+
+name: qwen3_next_3b_fineweb
+
+trainer:
+  devices: 8
+  num_nodes: 1
+  accelerator: gpu
+  precision: bf16-mixed
+  logger: false
+  enable_checkpointing: true
+  use_distributed_sampler: false
+  max_epochs: null
+  max_steps: 50000  # Reduced for initial experimentation
+  max_time: null
+  log_every_n_steps: 10
+  val_check_interval: 500
+  check_val_every_n_epoch: null
+  accumulate_grad_batches: 4  # Effective batch size = 8 GPUs * 2 micro * 4 accum = 64
+  gradient_clip_val: 1.0
+  resume_from_checkpoint: null
+
+model:
+  # Model restoration
+  restore_from_path: null
+  resume_from_checkpoint: null
+  save_nemo_on_validation_end: true
+  sync_batch_comm: true
+  megatron_amp_O2: true
+
+  # Parallelism configuration
+  micro_batch_size: 2
+  global_batch_size: 64  # Reduced from 128 for stability
+  tensor_model_parallel_size: 2
+  pipeline_model_parallel_size: 1
+  virtual_pipeline_model_parallel_size: null
+  sequence_parallel: true
+  expert_model_parallel_size: 1
+
+  # Model architecture - 3B parameters total, ~1B active
+  encoder_seq_length: 4096
+  max_position_embeddings: 4096
+  num_layers: 24
+  hidden_size: 2048
+  ffn_hidden_size: 5632
+  num_attention_heads: 16
+  init_method_std: 0.01
+  use_scaled_init_method: true
+  hidden_dropout: 0.0
+  attention_dropout: 0.0
+  ffn_dropout: 0.0
+  kv_channels: 128
+  apply_query_key_layer_scaling: false
+  normalization: rmsnorm
+  layernorm_epsilon: 1.0e-5
+  make_vocab_size_divisible_by: 128
+  pre_process: true
+  post_process: true
+  persist_layer_norm: true
+  bias_dropout_fusion: false
+  bias_activation_fusion: false
+  masked_softmax_fusion: true
+  gradient_accumulation_fusion: false
+  activation: silu
+  headscale: false
+  transformer_block_type: pre_ln
+  normalize_attention_scores: true
+
+  # Qwen3-Next specific configuration
+  transformer_layer_spec: "megatron_qwen3_next"
+
+  # Hybrid attention pattern: 6 full, 18 linear attention layers
+  layer_types: [
+    "full", "linear", "linear", "full",      # 0-3
+    "linear", "linear", "full", "linear",    # 4-7
+    "linear", "linear", "linear", "full",    # 8-11
+    "linear", "linear", "full", "linear",    # 12-15
+    "linear", "linear", "linear", "full",    # 16-19
+    "linear", "linear", "full", "linear"     # 20-23
+  ]
+
+  # Linear attention parameters
+  linear_attention_clip_val: 5.0
+  linear_attention_chunk_size: 128
+  linear_attention_use_recurrent: false
+
+  # Grouped Query Attention
+  attention_head_type: "GQA"
+  num_query_groups: 4
+
+  # Position embeddings
+  position_embedding_type: rope
+  rotary_percentage: 0.25
+  rotary_interleaved: false
+  rotary_base: 10000
+
+  # Memory optimizations
+  use_flash_attention: true
+
+  # Tokenizer - using Qwen2 tokenizer
+  tokenizer:
+    library: huggingface
+    type: AutoTokenizer
+    model: Qwen/Qwen2-1.5B
+    use_fast: true
+    trust_remote_code: true
+
+  # Data configuration - using preprocessed binary files
+  data:
+    # Standard NeMo data configuration
+    data_impl: mmap
+    data_prefix:
+      - 1.0
+      - ./data/fineweb_qwen3_text_document  # Path to preprocessed binary files
+
+    # Dataset splits (train/valid/test)
+    splits_string: "99.9,0.1,0"  # 99.9% train, 0.1% validation
+
+    # Sequence configuration
+    seq_length: 4096
+    skip_warmup: true
+    num_workers: 8
+    dataloader_type: single
+    reset_position_ids: false
+    reset_attention_mask: false
+    eod_mask_loss: false
+
+    # Memory and performance
+    index_mapping_dir: ./data/index_mappings
+    data_cache_path: null
+
+  # Optimizer
+  optim:
+    name: fused_adam
+    lr: 2.0e-4  # Conservative learning rate
+    weight_decay: 0.1
+    betas:
+      - 0.9
+      - 0.95
+    sched:
+      name: CosineAnnealing
+      warmup_steps: 1000
+      constant_steps: 500
+      min_lr: 2.0e-5
+      monitor: val_loss
+      reduce_on_plateau: false
+
+  # Mixed precision
+  precision: bf16
+  native_amp_init_scale: 4294967296
+  native_amp_growth_interval: 1000
+  hysteresis: 2
+  fp32_residual_connection: false
+  fp16_lm_cross_entropy: false
+
+  # Activation checkpointing
+  activations_checkpoint_granularity: full
+  activations_checkpoint_method: uniform
+  activations_checkpoint_num_layers: 8
+
+  # Logging
+  log_parameter_norm: false
+  log_gradient_norm: false
+
+  # Additional settings
+  use_cpu_initialization: false
+  onnx_safe: false
+  gradient_as_bucket_view: true
+
+exp_manager:
+  explicit_log_dir: ./logs/qwen3_next_3b_fineweb
+  exp_dir: null
+  name: qwen3_next_3b_fineweb_training
+  create_wandb_logger: false
+  wandb_logger_kwargs:
+    project: qwen3_next_pretraining
+    name: qwen3_next_3b_fineweb
+  resume_if_exists: true
+  resume_ignore_no_checkpoint: true
+  create_checkpoint_callback: true
+  checkpoint_callback_params:
+    monitor: val_loss
+    save_top_k: 3
+    mode: min
+    always_save_nemo: false
+    save_nemo_on_train_end: true
+    filename: 'qwen3_next_3b--{val_loss:.2f}-{step}'
+    model_parallel_size: ${multiply:${model.tensor_model_parallel_size}, ${model.pipeline_model_parallel_size}}
+    save_on_train_epoch_end: false
