@@ -38,6 +38,7 @@ from nemo.collections.nlp.data.language_modeling.megatron.data_samplers import (
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_dataset import build_train_valid_test_datasets
 from nemo.collections.nlp.data.language_modeling.megatron.gpt_fim_dataset import GPTFIMDataset, GPTFIMDatasetConfig
 from nemo.collections.nlp.models.language_modeling.megatron.falcon.falcon_spec import get_falcon_layer_spec
+from nemo.collections.nlp.models.language_modeling.megatron.qwen3_next.qwen3_next_spec import get_qwen3_next_layer_spec_with_config
 from nemo.collections.nlp.models.language_modeling.megatron.gpt_full_te_layer_autocast_spec import (
     get_gpt_full_te_layer_autocast_spec,
 )
@@ -154,11 +155,16 @@ def get_specs(spec_name, transformer_config=None, use_te=True, hyena_cfg: Dict =
 
     if use_te and spec_name == '':
         spec_name = 'te_gpt'
+
+    # Helper function for Qwen3-Next hybrid layer specs
+    def get_qwen3_next_spec():
+        return get_qwen3_next_layer_spec_with_config(transformer_config, layer_number=0)
     name_spec_dict = {
         "": get_gpt_layer_local_spec(num_experts, moe_grouped_gemm),
         "te_gpt": get_gpt_layer_with_transformer_engine_spec(num_experts, moe_grouped_gemm, fp8=fp8),
         "megatron_falcon_gpt": get_falcon_layer_spec(),
         "megatron_gemma2": get_gemma2_layer_spec(),
+        "megatron_qwen3_next": get_qwen3_next_spec,
         "megatron_gpt_full_te_layer_autocast": get_gpt_full_te_layer_autocast_spec(transformer_config),
         "modelopt": get_gpt_layer_modelopt_spec(num_experts),
         "te_gpt_hyena": get_gpt_layer_with_te_and_hyena_spec(hyena_cfg),

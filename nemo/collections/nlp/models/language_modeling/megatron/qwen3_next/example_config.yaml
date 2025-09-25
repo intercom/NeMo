@@ -1,0 +1,103 @@
+# Example configuration for Qwen3-Next model
+# This shows how to configure a hybrid attention model with both full and linear attention layers
+
+model:
+  # Basic model configuration
+  micro_batch_size: 4
+  global_batch_size: 32
+  tensor_model_parallel_size: 1
+  pipeline_model_parallel_size: 1
+
+  # Architecture configuration
+  encoder_seq_length: 2048
+  max_position_embeddings: 2048
+  num_layers: 12
+  hidden_size: 768
+  ffn_hidden_size: 3072
+  num_attention_heads: 12
+  init_method_std: 0.02
+  use_scaled_init_method: true
+  hidden_dropout: 0.1
+  attention_dropout: 0.1
+  kv_channels: 64
+  apply_query_key_layer_scaling: false
+  normalization: 'rmsnorm'
+  bias_dropout_fusion: false
+  bias_activation_fusion: false
+  masked_softmax_fusion: true
+  activation: 'silu'
+  headscale: false
+
+  # Qwen3-Next specific configuration
+  transformer_layer_spec: "megatron_qwen3_next"
+
+  # Hybrid attention pattern - mix of full and linear attention
+  # This example uses alternating pattern: full -> linear -> full -> linear, etc.
+  layer_types: ["full", "linear", "full", "linear", "full", "linear", "full", "linear", "full", "linear", "full", "linear"]
+
+  # Linear attention specific parameters
+  linear_attention_clip_val: 5.0           # Clipping value for beta parameters
+  linear_attention_chunk_size: 64          # Chunk size for efficient processing
+  linear_attention_use_recurrent: false    # Use chunk-based by default
+
+  # Attention head configuration
+  attention_head_type: "MQA"               # or "GQA" for grouped query attention
+  num_query_groups: 4                      # For GQA, number of query groups
+
+  # Position embeddings
+  position_embedding_type: 'rope'
+  rotary_percentage: 0.25                  # Partial RoPE (25% of dimensions)
+  rotary_interleaved: false
+
+  # Training configuration
+  tokenizer:
+    library: 'huggingface'
+    type: 'AutoTokenizer'
+    model: 'Qwen/Qwen2-0.5B'  # Use Qwen2 tokenizer as baseline
+    use_fast: true
+
+  # Optimizer
+  optim:
+    name: adamw
+    lr: 2.0e-4
+    weight_decay: 0.1
+    betas:
+    - 0.9
+    - 0.95
+
+  # Scheduler
+  sched:
+    name: CosineAnnealing
+    warmup_steps: 2000
+    constant_steps: 0
+    min_lr: 2.0e-5
+
+# Training configuration
+trainer:
+  devices: 1
+  num_nodes: 1
+  accelerator: gpu
+  precision: 16
+  logger: false
+  enable_checkpointing: false
+  replace_sampler_ddp: false
+  max_epochs: 3
+  max_steps: 10000
+  log_every_n_steps: 50
+  val_check_interval: 500
+  accumulate_grad_batches: 1
+  gradient_clip_val: 1.0
+
+# Data configuration (example)
+data:
+  data_prefix: [1.0, "path/to/training/data"]
+  index_mapping_dir: null
+  data_impl: mmap
+  splits_string: "990,5,5"
+  seq_length: 2048
+  skip_warmup: true
+  num_workers: 8
+  dataloader_type: single
+  reset_position_ids: false
+  reset_attention_mask: false
+  eod_mask_loss: false
