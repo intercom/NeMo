@@ -21,7 +21,7 @@ rouge_score
 sacrebleu
 scikit-learn
 transformers==5.0.0rc3
-vllm==0.11.0
+vllm==0.20.0
 webdataset>=0.2.86
 wget
 zarr>=2.18.2,<3.0.0
