@@ -14,9 +14,9 @@
   "devDependencies": {
     "@types/node": "^22.15.30",
     "@types/protobufjs": "^6.0.0",
-    "@vitejs/plugin-react-swc": "^3.10.1",
+    "@vitejs/plugin-react-swc": "^4.3.1",
     "typescript": "^5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^8.0.16"
   },
   "dependencies": {
     "@pipecat-ai/client-js": "^0.4.0",
