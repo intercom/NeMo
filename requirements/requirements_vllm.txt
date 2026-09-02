@@ -20,7 +20,7 @@ pangu
 rouge_score
 sacrebleu
 scikit-learn
-transformers==5.5.0
+transformers==5.10.1
 vllm==0.26.0
 webdataset>=0.2.86
 wget
